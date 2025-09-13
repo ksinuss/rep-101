@@ -3,6 +3,7 @@ import Login from './components/Login'
 import Register from './components/Register'
 import Profile from './components/Profile'
 import MainWindow from './components/MainWindow'
+import apiService from './services/api'
 import './App.css'
 
 function App() {
@@ -22,19 +23,42 @@ function App() {
   const handleLogin = async (loginData) => {
     setIsLoading(true)
     try {
-      // Имитация API запроса
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Попытка входа через API
+      try {
+        await apiService.login(loginData.email, loginData.password)
+        const userData = await apiService.getCurrentUser()
+        
+        // Преобразуем данные пользователя в формат, ожидаемый frontend
+        const formattedUser = {
+          id: userData.id,
+          firstName: userData.full_name.split(' ')[0] || userData.full_name,
+          lastName: userData.full_name.split(' ').slice(1).join(' ') || '',
+          email: userData.email,
+          phone: '+7 (999) 123-45-67', // Пока не реализовано в backend
+          company: 'ООО "Пример"', // Пока не реализовано в backend
+          position: 'Frontend Developer', // Пока не реализовано в backend
+          joinDate: userData.created_at,
+          karma: userData.karma,
+          totalDonated: userData.total_donated,
+          isAdmin: userData.is_admin
+        }
+        
+        setUser(formattedUser)
+        localStorage.setItem('coworking_user', JSON.stringify(formattedUser))
+        setCurrentView('main')
+        return
+      } catch (apiError) {
+        console.log('API login failed, falling back to demo mode:', apiError.message)
+      }
       
-      // Проверяем, есть ли сохраненные данные пользователя
+      // Fallback к демо-режиму если API недоступен
       const savedUser = localStorage.getItem('coworking_user')
       let userData
       
       if (savedUser) {
-        // Используем сохраненные данные
         userData = JSON.parse(savedUser)
-        userData.email = loginData.email // Обновляем email на случай, если он изменился
+        userData.email = loginData.email
       } else {
-        // Создаем нового пользователя только если нет сохраненных данных
         userData = {
           id: Date.now(),
           firstName: 'Иван',
@@ -43,7 +67,10 @@ function App() {
           phone: '+7 (999) 123-45-67',
           company: 'ООО "Пример"',
           position: 'Frontend Developer',
-          joinDate: new Date().toISOString()
+          joinDate: new Date().toISOString(),
+          karma: 0,
+          totalDonated: 0,
+          isAdmin: false
         }
       }
       
@@ -61,19 +88,56 @@ function App() {
   const handleRegister = async (registerData) => {
     setIsLoading(true)
     try {
-      // Имитация API запроса
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Попытка регистрации через API
+      try {
+        const apiUserData = {
+          email: registerData.email,
+          full_name: `${registerData.firstName} ${registerData.lastName}`,
+          password: registerData.password
+        }
+        
+        await apiService.register(apiUserData)
+        
+        // Автоматически входим после регистрации
+        await apiService.login(registerData.email, registerData.password)
+        const userData = await apiService.getCurrentUser()
+        
+        // Преобразуем данные пользователя в формат, ожидаемый frontend
+        const formattedUser = {
+          id: userData.id,
+          firstName: registerData.firstName,
+          lastName: registerData.lastName,
+          email: userData.email,
+          phone: registerData.phone || '+7 (999) 123-45-67',
+          company: registerData.company || '',
+          position: registerData.position || '',
+          joinDate: userData.created_at,
+          karma: userData.karma,
+          totalDonated: userData.total_donated,
+          isAdmin: userData.is_admin
+        }
+        
+        setUser(formattedUser)
+        localStorage.setItem('coworking_user', JSON.stringify(formattedUser))
+        setCurrentView('profile')
+        return
+      } catch (apiError) {
+        console.log('API registration failed, falling back to demo mode:', apiError.message)
+      }
       
-      // Создаем пользователя
+      // Fallback к демо-режиму если API недоступен
       const userData = {
         id: Date.now(),
         firstName: registerData.firstName,
         lastName: registerData.lastName,
         email: registerData.email,
-        phone: registerData.phone,
+        phone: registerData.phone || '+7 (999) 123-45-67',
         company: registerData.company || '',
         position: registerData.position || '',
-        joinDate: new Date().toISOString()
+        joinDate: new Date().toISOString(),
+        karma: 0,
+        totalDonated: 0,
+        isAdmin: false
       }
       
       setUser(userData)
@@ -88,6 +152,7 @@ function App() {
   }
 
   const handleLogout = () => {
+    apiService.logout()
     setUser(null)
     localStorage.removeItem('coworking_user')
     setCurrentView('login')

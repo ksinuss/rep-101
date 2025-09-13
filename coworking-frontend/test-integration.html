@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Integration</title>
+</head>
+<body>
+    <h1>Тест интеграции Frontend и Backend</h1>
+    <div id="status"></div>
+    <button onclick="testBackend()">Тестировать Backend</button>
+    <button onclick="testRegistration()">Тестировать Регистрацию</button>
+    <button onclick="testLogin()">Тестировать Вход</button>
+    
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        async function testBackend() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = 'Тестируем backend...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `✅ Backend работает! Статус: ${data.status}`;
+                } else {
+                    statusDiv.innerHTML = `❌ Backend недоступен. Статус: ${response.status}`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `❌ Ошибка подключения к backend: ${error.message}`;
+            }
+        }
+        
+        async function testRegistration() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = 'Тестируем регистрацию...';
+            
+            try {
+                const userData = {
+                    email: 'test@example.com',
+                    full_name: 'Test User',
+                    password: 'testpassword123'
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `✅ Регистрация успешна! ID: ${data.id}`;
+                } else {
+                    const error = await response.json();
+                    statusDiv.innerHTML = `❌ Ошибка регистрации: ${error.detail}`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `❌ Ошибка подключения: ${error.message}`;
+            }
+        }
+        
+        async function testLogin() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = 'Тестируем вход...';
+            
+            try {
+                const formData = new FormData();
+                formData.append('username', 'test@example.com');
+                formData.append('password', 'testpassword123');
+                
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `✅ Вход успешен! Токен получен: ${data.access_token.substring(0, 20)}...`;
+                } else {
+                    const error = await response.json();
+                    statusDiv.innerHTML = `❌ Ошибка входа: ${error.detail}`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `❌ Ошибка подключения: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
