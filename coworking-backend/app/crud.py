@@ -3,7 +3,7 @@ from . import models, schemas
 from .utils.security import get_password_hash, verify_password
 from datetime import datetime, timedelta
 from typing import List, Optional
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -199,3 +199,151 @@ def get_user_statistics(db: Session, user_id: int):
         "average_duration": float(avg_duration),
         "last_visit": last_visit.check_in if last_visit else None
     }
+
+# Room CRUD operations
+def create_room(db: Session, room: schemas.RoomCreate):
+    db_room = models.Room(**room.dict())
+    db.add(db_room)
+    db.commit()
+    db.refresh(db_room)
+    return db_room
+
+def get_rooms(db: Session, skip: int = 0, limit: int = 100, active_only: bool = True):
+    query = db.query(models.Room)
+    if active_only:
+        query = query.filter(models.Room.is_active == True)
+    return query.offset(skip).limit(limit).all()
+
+def get_room(db: Session, room_id: int):
+    return db.query(models.Room).filter(models.Room.id == room_id).first()
+
+def get_room_by_name(db: Session, name: str):
+    return db.query(models.Room).filter(models.Room.name == name).first()
+
+def update_room(db: Session, room_id: int, room_update: schemas.RoomUpdate):
+    db_room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if db_room:
+        update_data = room_update.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_room, field, value)
+        db.commit()
+        db.refresh(db_room)
+    return db_room
+
+def delete_room(db: Session, room_id: int):
+    db_room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if db_room:
+        db_room.is_active = False
+        db.commit()
+        db.refresh(db_room)
+    return db_room
+
+# Booking CRUD operations
+def create_booking(db: Session, booking: schemas.BookingCreate, user_id: int):
+    # Check for conflicts
+    conflicting_booking = db.query(models.Booking).filter(
+        models.Booking.room_id == booking.room_id,
+        models.Booking.status == "confirmed",
+        or_(
+            and_(
+                models.Booking.start_time < booking.end_time,
+                models.Booking.end_time > booking.start_time
+            )
+        )
+    ).first()
+    
+    if conflicting_booking:
+        raise ValueError("Room is already booked for this time period")
+    
+    db_booking = models.Booking(
+        **booking.dict(),
+        user_id=user_id
+    )
+    db.add(db_booking)
+    db.commit()
+    db.refresh(db_booking)
+    
+    # Add karma points for booking
+    update_user_karma(db, user_id, 2)
+    
+    return db_booking
+
+def get_bookings(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Booking).order_by(models.Booking.start_time.desc()).offset(skip).limit(limit).all()
+
+def get_user_bookings(db: Session, user_id: int):
+    return db.query(models.Booking).filter(
+        models.Booking.user_id == user_id
+    ).order_by(models.Booking.start_time.desc()).all()
+
+def get_room_bookings(db: Session, room_id: int, start_date: datetime = None, end_date: datetime = None):
+    query = db.query(models.Booking).filter(models.Booking.room_id == room_id)
+    
+    if start_date:
+        query = query.filter(models.Booking.start_time >= start_date)
+    if end_date:
+        query = query.filter(models.Booking.end_time <= end_date)
+    
+    return query.order_by(models.Booking.start_time).all()
+
+def get_booking(db: Session, booking_id: int):
+    return db.query(models.Booking).filter(models.Booking.id == booking_id).first()
+
+def update_booking(db: Session, booking_id: int, booking_update: schemas.BookingUpdate):
+    db_booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
+    if db_booking:
+        update_data = booking_update.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_booking, field, value)
+        db_booking.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_booking)
+    return db_booking
+
+def cancel_booking(db: Session, booking_id: int):
+    db_booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
+    if db_booking:
+        db_booking.status = "cancelled"
+        db_booking.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_booking)
+    return db_booking
+
+def get_room_availability(db: Session, room_id: int, date: datetime):
+    """Get available time slots for a room on a specific date"""
+    start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_day = date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # Get all confirmed bookings for the room on this date
+    bookings = db.query(models.Booking).filter(
+        models.Booking.room_id == room_id,
+        models.Booking.status == "confirmed",
+        models.Booking.start_time >= start_of_day,
+        models.Booking.end_time <= end_of_day
+    ).order_by(models.Booking.start_time).all()
+    
+    # Generate available slots (assuming 1-hour slots from 9 AM to 9 PM)
+    available_slots = []
+    current_time = start_of_day.replace(hour=9)
+    end_time = start_of_day.replace(hour=21)
+    
+    while current_time < end_time:
+        slot_end = current_time + timedelta(hours=1)
+        
+        # Check if this slot conflicts with any booking
+        is_available = True
+        for booking in bookings:
+            if (current_time < booking.end_time and slot_end > booking.start_time):
+                is_available = False
+                break
+        
+        if is_available:
+            available_slots.append({
+                "start_time": current_time.isoformat(),
+                "end_time": slot_end.isoformat(),
+                "duration_hours": 1
+            })
+        
+        current_time = slot_end
+    
+    return available_slots

@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import Community from './Community'
+import RoomBooking from './RoomBooking'
+import RoomManagement from './RoomManagement'
+import { hasPermission, Permission, canManageRooms } from '../utils/permissions'
 
 const MainWindow = ({ user, onLogout, onGoToProfile }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
 
   const tabs = [
-    { id: 'dashboard', name: 'Панель управления', icon: '📊' },
-    { id: 'booking', name: 'Бронирование', icon: '📅' },
+    { id: 'dashboard', name: 'Статистика', icon: '📊' },
+    { id: 'room-booking', name: 'Бронирование аудиторий', icon: '🏢' },
+    { id: 'booking', name: 'Бронирование мест', icon: '📅' },
     { id: 'events', name: 'События', icon: '🎉' },
-    { id: 'community', name: 'Сообщество', icon: '👥' }
+    { id: 'community', name: 'Сообщество', icon: '👥' },
+    ...(canManageRooms(user) ? [{ id: 'room-management', name: 'Управление аудиториями', icon: '⚙️' }] : [])
   ]
 
   const renderContent = () => {
@@ -16,7 +21,7 @@ const MainWindow = ({ user, onLogout, onGoToProfile }) => {
       case 'dashboard':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Панель управления</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Статистика</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="card">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Активные бронирования</h3>
@@ -36,6 +41,8 @@ const MainWindow = ({ user, onLogout, onGoToProfile }) => {
             </div>
           </div>
         )
+      case 'room-booking':
+        return <RoomBooking user={user} onBack={() => setActiveTab('dashboard')} />
       case 'booking':
         return (
           <div className="space-y-6">
@@ -56,6 +63,8 @@ const MainWindow = ({ user, onLogout, onGoToProfile }) => {
         )
       case 'community':
         return <Community user={user} />
+      case 'room-management':
+        return <RoomManagement user={user} onBack={() => setActiveTab('dashboard')} />
       default:
         return null
     }

@@ -6,6 +6,7 @@
 ```bash
 cd coworking-backend
 pip install -r requirements.txt
+python init_rooms.py  # Инициализация базы данных с тестовыми аудиториями
 python start_server.py
 ```
 **Результат**: Backend запущен на `http://localhost:8000`
@@ -111,6 +112,13 @@ npm install
 - `POST /auth/login` - вход
 - `GET /users/me` - профиль
 - `GET /health` - статус сервера
+
+### Новые endpoints для бронирования аудиторий
+- `GET /api/rooms` - список аудиторий
+- `GET /api/rooms/{id}/availability` - доступные слоты времени
+- `POST /api/bookings` - создание бронирования
+- `GET /api/bookings/my` - мои бронирования
+- `DELETE /api/bookings/{id}` - отмена бронирования
 
 ## 📞 Поддержка
 

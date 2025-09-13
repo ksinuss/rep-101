@@ -163,6 +163,65 @@ class ApiService {
   async healthCheck() {
     return this.get('/health', { includeAuth: false });
   }
+
+  // Rooms
+  async getRooms() {
+    return this.get('/api/rooms');
+  }
+
+  async getRoom(roomId) {
+    return this.get(`/api/rooms/${roomId}`);
+  }
+
+  async createRoom(roomData) {
+    return this.post('/api/rooms', roomData);
+  }
+
+  async updateRoom(roomId, roomData) {
+    return this.put(`/api/rooms/${roomId}`, roomData);
+  }
+
+  async deleteRoom(roomId) {
+    return this.delete(`/api/rooms/${roomId}`);
+  }
+
+  async getRoomAvailability(roomId, date) {
+    return this.get(`/api/rooms/${roomId}/availability?date=${date.toISOString()}`);
+  }
+
+  async getRoomBookings(roomId, startDate = null, endDate = null) {
+    let url = `/api/rooms/${roomId}/bookings`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate.toISOString());
+    if (endDate) params.append('end_date', endDate.toISOString());
+    if (params.toString()) url += `?${params.toString()}`;
+    return this.get(url);
+  }
+
+  // Bookings
+  async createBooking(bookingData) {
+    return this.post('/api/bookings', bookingData);
+  }
+
+  async getBookings() {
+    return this.get('/api/bookings');
+  }
+
+  async getMyBookings() {
+    return this.get('/api/bookings/my');
+  }
+
+  async getBooking(bookingId) {
+    return this.get(`/api/bookings/${bookingId}`);
+  }
+
+  async updateBooking(bookingId, bookingData) {
+    return this.put(`/api/bookings/${bookingId}`, bookingData);
+  }
+
+  async cancelBooking(bookingId) {
+    return this.delete(`/api/bookings/${bookingId}`);
+  }
 }
 
 // Создаем единственный экземпляр API сервиса

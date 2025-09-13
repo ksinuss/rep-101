@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -85,3 +85,73 @@ class UserStats(BaseModel):
     total_donation: float
     average_duration: float
     last_visit: Optional[datetime] = None
+
+# Room schemas
+class RoomBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    capacity: int
+    equipment: Optional[str] = None
+
+class RoomCreate(RoomBase):
+    pass
+
+class RoomUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    capacity: Optional[int] = None
+    equipment: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class RoomResponse(RoomBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Booking schemas
+class BookingBase(BaseModel):
+    room_id: int
+    start_time: datetime
+    end_time: datetime
+    purpose: Optional[str] = None
+
+    @field_validator('end_time')
+    def validate_end_time(cls, v, info):
+        if 'start_time' in info.data and v <= info.data['start_time']:
+            raise ValueError('End time must be after start time')
+        return v
+
+    @field_validator('start_time')
+    def validate_start_time(cls, v):
+        if v < datetime.utcnow():
+            raise ValueError('Start time cannot be in the past')
+        return v
+
+class BookingCreate(BookingBase):
+    pass
+
+class BookingUpdate(BaseModel):
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    purpose: Optional[str] = None
+    status: Optional[str] = None
+
+class BookingResponse(BookingBase):
+    id: int
+    user_id: int
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    room: RoomResponse
+    user_name: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class BookingAvailability(BaseModel):
+    room_id: int
+    room_name: str
+    available_slots: List[dict]  # List of available time slots

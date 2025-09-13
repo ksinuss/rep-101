@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, SessionLocal, Base
 from . import models
-from .routers import auth, users, visits, admin, donations
+from .routers import auth, users, visits, admin, donations, rooms, bookings
 from .database import get_db
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,8 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(visits.router, prefix="/visits", tags=["visits"])
 app.include_router(donations.router, prefix="/donations", tags=["donations"])
+app.include_router(rooms.router, prefix="/api", tags=["rooms"])
+app.include_router(bookings.router, prefix="/api", tags=["bookings"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
 @app.get("/")
